@@ -2004,6 +2004,7 @@ const AdminPanel = ({ users, onUpdateUser }) => {
   );
 };
 
+
 const UserManagement = ({ user, users, onCreateUser }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [newUser, setNewUser] = useState({
@@ -2015,7 +2016,7 @@ const UserManagement = ({ user, users, onCreateUser }) => {
   });
 
   const myUsers = users.filter(u => {
-    if (user.role === 'director') return true;
+    if (user.role === 'admin' || user.role === 'director') return true;
     if (user.role === 'supervisor') {
       if (u.superUserId === user.id) return true;
       const partners = users.filter(p => p.role === 'partner' && p.superUserId === user.id);
@@ -2033,10 +2034,11 @@ const UserManagement = ({ user, users, onCreateUser }) => {
     await onCreateUser(newUser);
     setNewUser({ name: '', email: '', password: '', role: 'agent', superUserId: null });
     setIsCreating(false);
+    window.location.reload();
   };
 
   const getRoleOptions = () => {
-    if (user.role === 'director') {
+    if (user.role === 'admin' || user.role === 'director') {
       return [
         { value: 'supervisor', label: 'Supervisor' },
         { value: 'partner', label: 'Partner' },
@@ -2055,6 +2057,31 @@ const UserManagement = ({ user, users, onCreateUser }) => {
     }
     return [];
   };
+
+  const getSuperUserOptions = () => {
+    if (user.role === 'admin' || user.role === 'director') {
+      if (newUser.role === 'agent') {
+        return users.filter(u => u.role === 'supervisor' || u.role === 'partner');
+      } else if (newUser.role === 'partner') {
+        return users.filter(u => u.role === 'supervisor');
+      }
+      return [];
+    }
+    
+    if (user.role === 'supervisor') {
+      return [user];
+    }
+    
+    if (user.role === 'partner') {
+      return [user];
+    }
+    
+    return [];
+  };
+
+  const superUserOptions = getSuperUserOptions();
+  const showSuperUserDropdown = superUserOptions.length > 0 && 
+    (newUser.role === 'agent' || newUser.role === 'partner');
 
   return (
     <div className="space-y-6">
@@ -2109,7 +2136,7 @@ const UserManagement = ({ user, users, onCreateUser }) => {
                   <label className="block text-gray-700 font-medium mb-2 text-sm">Ρόλος *</label>
                   <select
                     value={newUser.role}
-                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value, superUserId: null })}
                     className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
                     required
                   >
@@ -2118,7 +2145,29 @@ const UserManagement = ({ user, users, onCreateUser }) => {
                     ))}
                   </select>
                 </div>
+
+                {showSuperUserDropdown && (
+                  <div className="md:col-span-2">
+                    <label className="block text-gray-700 font-medium mb-2 text-sm">
+                      Ανάθεση σε {newUser.role === 'agent' ? 'Supervisor/Partner' : 'Supervisor'} *
+                    </label>
+                    <select
+                      value={newUser.superUserId || ''}
+                      onChange={(e) => setNewUser({ ...newUser, superUserId: parseInt(e.target.value) || null })}
+                      className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+                      required
+                    >
+                      <option value="">-- Επιλέξτε {newUser.role === 'agent' ? 'Supervisor/Partner' : 'Supervisor'} --</option>
+                      {superUserOptions.map(u => (
+                        <option key={u.id} value={u.id}>
+                          {u.name} ({u.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
+
               <div className="flex gap-3">
                 <button
                   type="submit"
@@ -2137,6 +2186,43 @@ const UserManagement = ({ user, users, onCreateUser }) => {
             </form>
           </div>
         )}
+
+        <div className="space-y-3">
+          <h3 className="text-lg font-bold text-gray-800 mb-3">
+            {user.role === 'admin' || user.role === 'director' ? 'Όλοι οι Χρήστες' : 'Οι Χρήστες μου'}
+          </h3>
+          {myUsers.map(u => (
+            <div
+              key={u.id}
+              className="border-2 border-gray-200 rounded-xl p-4 hover:border-blue-300 transition-all"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">{u.name}</h3>
+                  <p className="text-sm text-gray-600">{u.email}</p>
+                  {u.superUserId && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Reports to: {users.find(su => su.id === u.superUserId)?.name || 'Unknown'}
+                    </p>
+                  )}
+                </div>
+                <span className="text-xs px-3 py-1 rounded-full bg-blue-100 text-blue-800 border-2 border-blue-200 font-semibold">
+                  {u.role}
+                </span>
+              </div>
+            </div>
+          ))}
+
+          {myUsers.length === 0 && (
+            <div className="text-center py-12 text-gray-400">
+              Δεν έχετε χρήστες ακόμα
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
         <div className="space-y-3">
           {myUsers.map(u => (
@@ -2431,18 +2517,181 @@ const CustomFieldsManagement = () => {
                 </datalist>
               </div>
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="required"
-                  checked={formData.required}
-                  onChange={(e) => setFormData({ ...formData, required: e.target.checked })}
-                  className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                />
-                <label htmlFor="required" className="text-gray-700 font-medium text-sm">
-                  Υποχρεωτικό πεδίο
-                </label>
-              </div>
+           // ═══════════════════════════════════════════════════════════════
+// FIX #2: DASHBOARD NAVIGATION
+// ═══════════════════════════════════════════════════════════════
+// ΟΔΗΓΙΕΣ:
+// 1. Άνοιξε το App.jsx
+// 2. Μέσα στο Dashboard component, βρες το <nav> section
+// 3. Μέσα στο <nav>, βρες το: <div className="flex items-center gap-2">
+// 4. ΑΝΤΙΚΑΤΕΣΤΗΣΕ από το <div> μέχρι το κλείσιμό του </div>
+//    με το παρακάτω code:
+// ═══════════════════════════════════════════════════════════════
+
+<div className="flex items-center gap-2">
+  {user.role === 'agent' && (
+    <>
+      <button
+        onClick={() => { setView('list'); setEditingCustomer(null); }}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'list'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Grid size={18} />
+        Πελάτες
+      </button>
+      <button
+        onClick={() => { setView('new'); setEditingCustomer(null); }}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'new'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Plus size={18} />
+        Νέος
+      </button>
+    </>
+  )}
+
+  {(user.role === 'supervisor' || user.role === 'partner') && (
+    <>
+      <button
+        onClick={() => setView('list')}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'list'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Grid size={18} />
+        Πελάτες
+      </button>
+      <button
+        onClick={() => setView('users')}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'users'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Users size={18} />
+        Χρήστες
+      </button>
+    </>
+  )}
+
+  {user.role === 'director' && (
+    <>
+      <button
+        onClick={() => setView('list')}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'list'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Grid size={18} />
+        Πελάτες
+      </button>
+      <button
+        onClick={() => setView('users')}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'users'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Users size={18} />
+        Χρήστες
+      </button>
+      <button
+        onClick={() => setView('fields')}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'fields'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Settings size={18} />
+        Πεδία
+      </button>
+    </>
+  )}
+
+  {user.role === 'back_office' && (
+    <button
+      onClick={() => setView('list')}
+      className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+        view === 'list'
+          ? 'bg-slate-900 text-white'
+          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+      }`}
+    >
+      <FileText size={18} />
+      Αιτήσεις
+    </button>
+  )}
+
+  {user.role === 'admin' && (
+    <>
+      <button
+        onClick={() => setView('admin')}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'admin'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <User size={18} />
+        Admin Panel
+      </button>
+      <button
+        onClick={() => setView('users')}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'users'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Users size={18} />
+        Δημιουργία Χρηστών
+      </button>
+      <button
+        onClick={() => setView('fields')}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'fields'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Settings size={18} />
+        Πεδία
+      </button>
+    </>
+  )}
+
+  <button
+    onClick={() => {
+      if (window.confirm('Είστε σίγουρος ότι θέλετε να αποσυνδεθείτε;')) {
+        window.location.reload();
+      }
+    }}
+    className="ml-2 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-all"
+  >
+    Έξοδος
+  </button>
+</div>
+
+// ═══════════════════════════════════════════════════════════════
+// ΑΠΟΤΕΛΕΣΜΑ:
+// ✅ Admin: Βλέπει "Admin Panel" + "Δημιουργία Χρηστών" + "Πεδία" (1 φορά!)
+// ✅ Director: Βλέπει "Πελάτες" + "Χρήστες" + "Πεδία" (1 φορά!)
+// ✅ Όλοι: Καθαρό UI χωρίς duplicates
+// ═══════════════════════════════════════════════════════════════
+
 
               {formData.type === 'text' && (
                 <div className="bg-blue-50 rounded-xl border border-blue-200 p-4">
@@ -2597,7 +2846,7 @@ const Dashboard = ({ user }) => {
   const [customFields, setCustomFields] = useState([]);
   const [view, setView] = useState('list');
   const [editingCustomer, setEditingCustomer] = useState(null);
-
+const [selectedBackOfficeCustomer, setSelectedBackOfficeCustomer] = useState(null);
   useEffect(() => {
     loadData();
   }, [user]);
@@ -2876,92 +3125,97 @@ const Dashboard = ({ user }) => {
           />
         )}
 
-        {user.role === 'back_office' && view === 'list' && (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-              <div className="bg-white rounded-2xl border-2 border-gray-200 p-6">
-                <div className="text-gray-500 text-sm font-semibold mb-2">Σύνολο</div>
-                <div className="text-4xl font-bold text-gray-900">{stats.total}</div>
+ {user.role === 'back_office' && view === 'list' && (
+  <>
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+      <div className="bg-white rounded-2xl border-2 border-gray-200 p-6">
+        <div className="text-gray-500 text-sm font-semibold mb-2">Σύνολο</div>
+        <div className="text-4xl font-bold text-gray-900">{stats.total}</div>
+      </div>
+      <div className="bg-yellow-50 rounded-2xl border-2 border-yellow-200 p-6">
+        <div className="text-yellow-700 text-sm font-semibold mb-2">Σε Αναμονή</div>
+        <div className="text-4xl font-bold text-yellow-900">{stats.pending}</div>
+      </div>
+      <div className="bg-blue-50 rounded-2xl border-2 border-blue-200 p-6">
+        <div className="text-blue-700 text-sm font-semibold mb-2">Επεξεργασία</div>
+        <div className="text-4xl font-bold text-blue-900">{stats.processing}</div>
+      </div>
+      <div className="bg-green-50 rounded-2xl border-2 border-green-200 p-6">
+        <div className="text-green-700 text-sm font-semibold mb-2">Ενεργά</div>
+        <div className="text-4xl font-bold text-green-900">{stats.active}</div>
+      </div>
+    </div>
+
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">Αιτήσεις Πελατών</h2>
+      <div className="space-y-3">
+        {customers.map(customer => (
+          <div
+            key={customer.id}
+            className="border-2 border-gray-200 rounded-xl p-5 hover:border-blue-300 transition-all cursor-pointer"
+            onClick={() => setSelectedBackOfficeCustomer(customer)}
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-gray-900">
+                  {customer.name} {customer.surname}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  ΑΦΜ: {customer.afm} • {customer.phone}
+                </p>
               </div>
-              <div className="bg-yellow-50 rounded-2xl border-2 border-yellow-200 p-6">
-                <div className="text-yellow-700 text-sm font-semibold mb-2">Σε Αναμονή</div>
-                <div className="text-4xl font-bold text-yellow-900">{stats.pending}</div>
+              <span className={`text-xs px-3 py-1 rounded-full border-2 font-semibold ${
+                customer.status === 'σε αναμονή' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                customer.status === 'σε επεξεργασία' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                customer.status === 'ενεργό' ? 'bg-green-100 text-green-800 border-green-200' :
+                'bg-red-100 text-red-800 border-red-200'
+              }`}>
+                {customer.status}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+              <div>
+                <span className="text-gray-500">Πάροχος:</span>
+                <p className="font-medium text-gray-900">{customer.provider}</p>
               </div>
-              <div className="bg-blue-50 rounded-2xl border-2 border-blue-200 p-6">
-                <div className="text-blue-700 text-sm font-semibold mb-2">Επεξεργασία</div>
-                <div className="text-4xl font-bold text-blue-900">{stats.processing}</div>
+              <div>
+                <span className="text-gray-500">Agent:</span>
+                <p className="font-medium text-gray-900">{customer.agentName}</p>
               </div>
-              <div className="bg-green-50 rounded-2xl border-2 border-green-200 p-6">
-                <div className="text-green-700 text-sm font-semibold mb-2">Ενεργά</div>
-                <div className="text-4xl font-bold text-green-900">{stats.active}</div>
+              <div>
+                <span className="text-gray-500">Υποβολή:</span>
+                <p className="font-medium text-gray-900">{customer.submissionDate}</p>
               </div>
             </div>
+          </div>
+        ))}
 
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Αιτήσεις Πελατών</h2>
-              <div className="space-y-3">
-                {customers.map(customer => (
-                  <div
-                    key={customer.id}
-                    className="border-2 border-gray-200 rounded-xl p-5 hover:border-blue-300 transition-all cursor-pointer"
-                    onClick={() => {
-                      const modal = document.createElement('div');
-                      modal.innerHTML = '';
-                      document.body.appendChild(modal);
-                      const root = ReactDOM.createRoot(modal);
-                      root.render(
-                        <BackOfficeEditModal
-                          customer={customer}
-                          onClose={() => {
-                            document.body.removeChild(modal);
-                          }}
-                          onUpdate={handleUpdateCustomer}
-                        />
-                      );
-                    }}
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-bold text-gray-900">
-                          {customer.name} {customer.surname}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          ΑΦΜ: {customer.afm} • {customer.phone}
-                        </p>
-                      </div>
-                      <span className={`text-xs px-3 py-1 rounded-full border-2 font-semibold ${
-                        customer.status === 'σε αναμονή' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
-                        customer.status === 'σε επεξεργασία' ? 'bg-blue-100 text-blue-800 border-blue-200' :
-                        customer.status === 'ενεργό' ? 'bg-green-100 text-green-800 border-green-200' :
-                        'bg-red-100 text-red-800 border-red-200'
-                      }`}>
-                        {customer.status}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                      <div>
-                        <span className="text-gray-500">Πάροχος:</span>
-                        <p className="font-medium text-gray-900">{customer.provider}</p>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Agent:</span>
-                        <p className="font-medium text-gray-900">{customer.agentName}</p>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Υποβολή:</span>
-                        <p className="font-medium text-gray-900">{customer.submissionDate}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
+        {customers.length === 0 && (
+          <div className="text-center py-12 text-gray-400">
+            Δεν υπάρχουν αιτήσεις
+          </div>
         )}
+      </div>
+    </div>
 
-        {user.role === 'admin' && view === 'admin' && (
-          <AdminPanel users={users} onUpdateUser={handleUpdateCustomer} />
-        )}
+    {selectedBackOfficeCustomer && (
+      <BackOfficeEditModal
+        customer={selectedBackOfficeCustomer}
+        onClose={() => setSelectedBackOfficeCustomer(null)}
+        onUpdate={handleUpdateCustomer}
+      />
+    )}
+  </>
+)}
+
+
+        {{user.role === 'admin' && view === 'users' && (
+  <UserManagement
+    user={user}
+    users={users}
+    onCreateUser={handleCreateUser}
+  />
+)}
 
         {(user.role === 'admin' || user.role === 'director') && view === 'fields' && (
           <CustomFieldsManagement />
