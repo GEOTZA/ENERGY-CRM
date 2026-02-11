@@ -3447,13 +3447,14 @@ async updateCustomField(id, updates) {
   localStorage.setItem('crm_custom_fields', JSON.stringify(fields));
   return fields[index];
 },
+
   const handleDeleteField = async (id) => {
     if (window.confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτό το πεδίο;')) {
       await API.deleteCustomField(id);
       loadFields();
     }
   };
-
+```
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
       <h2 className="text-3xl font-bold mb-6 text-gray-900">
