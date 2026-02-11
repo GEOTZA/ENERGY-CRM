@@ -3446,7 +3446,7 @@ async updateCustomField(id, updates) {
   if (cloudEnabled()) { await sb(`custom_fields?id=eq.${id}`, 'PATCH', fields[index]); }
   localStorage.setItem('crm_custom_fields', JSON.stringify(fields));
   return fields[index];
-}
+},
   const handleDeleteField = async (id) => {
     if (window.confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτό το πεδίο;')) {
       await API.deleteCustomField(id);
