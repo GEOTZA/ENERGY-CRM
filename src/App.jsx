@@ -1,4 +1,4 @@
-#import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Download, Plus, Trash2, Copy, Check, MessageSquare, X, Edit2, Filter, User, Users, Grid, FileText, Settings } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -2970,6 +2970,19 @@ const [selectedBackOfficeCustomer, setSelectedBackOfficeCustomer] = useState(nul
                     <Users size={18} />
                     Χρήστες
                   </button>
+                  {user.role === 'director' && (
+                    <button
+                      onClick={() => setView('fields')}
+                      className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                        view === 'fields'
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <Settings size={18} />
+                      Πεδία
+                    </button>
+                  )}
                 </>
               )}
 
@@ -2999,6 +3012,17 @@ const [selectedBackOfficeCustomer, setSelectedBackOfficeCustomer] = useState(nul
                   >
                     <User size={18} />
                     Admin
+                  <button
+                    onClick={() => setView('users')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                      view === 'users'
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Users size={18} />
+                    Δημιουργία Χρηστών
+                  </button>
                   </button>
                   <button
                     onClick={() => setView('fields')}
@@ -3014,19 +3038,6 @@ const [selectedBackOfficeCustomer, setSelectedBackOfficeCustomer] = useState(nul
                 </>
               )}
 
-              {(user.role === 'director' || user.role === 'admin') && (
-                <button
-                  onClick={() => setView('fields')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                    view === 'fields'
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <Settings size={18} />
-                  Πεδία
-                </button>
-              )}
 
               <button
                 onClick={() => {
