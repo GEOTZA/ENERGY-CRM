@@ -5,9 +5,8 @@ import * as XLSX from 'xlsx';
 // ============================================================
 // SUPABASE CONFIG
 // ============================================================
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
+const SUPABASE_URL = 'https://svrwybfxtcibqwijltwh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cnd5YmZ4dGNpYnF3aWpsdHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NzUzNDcsImV4cCI6MjA4NjA1MTM0N30.gYO5vyfV0KKUc3qWbUx5_eGW7q7BB5T7NtkOBs3LQWc';
 
 const cloudEnabled = () => !!(SUPABASE_URL && SUPABASE_KEY);
 
@@ -24,12 +23,16 @@ const sb = async (path, method = 'GET', body = null) => {
       },
       ...(body ? { body: JSON.stringify(body) } : {})
     });
-    if (!res.ok) { console.warn('Supabase error', res.status, await res.text()); return null; }
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('Supabase error', res.status, errorText);
+      throw new Error(`Supabase error ${res.status}: ${errorText}`);
+    }
     const text = await res.text();
     return text ? JSON.parse(text) : [];
-  } catch (e) { 
-    console.error('Supabase fetch failed:', e); 
-    throw e; 
+  } catch (e) {
+    console.error('Supabase fetch failed:', e);
+    throw e;
   }
 };
 
@@ -251,7 +254,7 @@ const API = {
 
     if (updates.status && oldStatus !== updates.status) {
       const users = JSON.parse(localStorage.getItem('crm_users') || '[]');
-      const agent = users.find(u => u.id === customers[index].agentId);
+      const agent = users?.find(u => u.id === customers[index].agentId);
       if (agent) sendEmailNotification(agent.email, 'Αλλαγή Κατάστασης Αίτησης',
         `Η αίτηση για τον πελάτη ${customers[index].name} ${customers[index].surname} άλλαξε σε: ${updates.status}`);
       users.filter(u => u.role === 'back_office').forEach(bo =>
@@ -282,7 +285,7 @@ const API = {
     localStorage.setItem('crm_customers', JSON.stringify(customers));
 
     const users = JSON.parse(localStorage.getItem('crm_users') || '[]');
-    const agent = users.find(u => u.id === customers[index].agentId);
+    const agent = users?.find(u => u.id === customers[index].agentId);
     if (userRole === 'back_office' && agent)
       sendEmailNotification(agent.email, 'Νέο Σχόλιο στην Αίτησή σας', `Νέο σχόλιο από ${userName}: ${comment}`);
     if (userRole === 'agent')
@@ -458,30 +461,20 @@ const LoginPage = ({ onLogin }) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    try {
-      const user = await API.login(email, password);
-      if (user) {
-        onLogin(user);
-      } else {
-        setError('Λάθος email ή κωδικός');
-      }
-    } catch (err) {
-      setError('Σφάλμα σύνδεσης. Δοκιμάστε ξανά.');
-    } finally {
-      setLoading(false);
+    const user = await API.login(email, password);
+    if (user) {
+      onLogin(user);
+    } else {
+      setError('Λάθος email ή κωδικός');
     }
+    setLoading(false);
   };
 
   const handleGoogleLogin = async () => {
     setLoading(true);
-    try {
-      const user = await API.googleLogin();
-      onLogin(user);
-    } catch (err) {
-      setError('Σφάλμα σύνδεσης Google. Δοκιμάστε ξανά.');
-    } finally {
-      setLoading(false);
-    }
+    const user = await API.googleLogin();
+    onLogin(user);
+    setLoading(false);
   };
 
   return (
@@ -2503,6 +2496,181 @@ const CustomFieldsManagement = () => {
                 </datalist>
               </div>
 
+           // ═══════════════════════════════════════════════════════════════
+// FIX #2: DASHBOARD NAVIGATION
+// ═══════════════════════════════════════════════════════════════
+// ΟΔΗΓΙΕΣ:
+// 1. Άνοιξε το App.jsx
+// 2. Μέσα στο Dashboard component, βρες το <nav> section
+// 3. Μέσα στο <nav>, βρες το: <div className="flex items-center gap-2">
+// 4. ΑΝΤΙΚΑΤΕΣΤΗΣΕ από το <div> μέχρι το κλείσιμό του </div>
+//    με το παρακάτω code:
+// ═══════════════════════════════════════════════════════════════
+
+<div className="flex items-center gap-2">
+  {user.role === 'agent' && (
+    <>
+      <button
+        onClick={() => { setView('list'); setEditingCustomer(null); }}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'list'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Grid size={18} />
+        Πελάτες
+      </button>
+      <button
+        onClick={() => { setView('new'); setEditingCustomer(null); }}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'new'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Plus size={18} />
+        Νέος
+      </button>
+    </>
+  )}
+
+  {(user.role === 'supervisor' || user.role === 'partner') && (
+    <>
+      <button
+        onClick={() => setView('list')}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'list'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Grid size={18} />
+        Πελάτες
+      </button>
+      <button
+        onClick={() => setView('users')}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'users'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Users size={18} />
+        Χρήστες
+      </button>
+    </>
+  )}
+
+  {user.role === 'director' && (
+    <>
+      <button
+        onClick={() => setView('list')}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'list'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Grid size={18} />
+        Πελάτες
+      </button>
+      <button
+        onClick={() => setView('users')}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'users'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Users size={18} />
+        Χρήστες
+      </button>
+      <button
+        onClick={() => setView('fields')}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'fields'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Settings size={18} />
+        Πεδία
+      </button>
+    </>
+  )}
+
+  {user.role === 'back_office' && (
+    <button
+      onClick={() => setView('list')}
+      className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+        view === 'list'
+          ? 'bg-slate-900 text-white'
+          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+      }`}
+    >
+      <FileText size={18} />
+      Αιτήσεις
+    </button>
+  )}
+
+  {user.role === 'admin' && (
+    <>
+      <button
+        onClick={() => setView('admin')}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'admin'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <User size={18} />
+        Admin Panel
+      </button>
+      <button
+        onClick={() => setView('users')}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'users'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Users size={18} />
+        Δημιουργία Χρηστών
+      </button>
+      <button
+        onClick={() => setView('fields')}
+        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+          view === 'fields'
+            ? 'bg-slate-900 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Settings size={18} />
+        Πεδία
+      </button>
+    </>
+  )}
+
+  <button
+    onClick={() => {
+      if (window.confirm('Είστε σίγουρος ότι θέλετε να αποσυνδεθείτε;')) {
+        window.location.reload();
+      }
+    }}
+    className="ml-2 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-all"
+  >
+    Έξοδος
+  </button>
+</div>
+
+// ═══════════════════════════════════════════════════════════════
+// ΑΠΟΤΕΛΕΣΜΑ:
+// ✅ Admin: Βλέπει "Admin Panel" + "Δημιουργία Χρηστών" + "Πεδία" (1 φορά!)
+// ✅ Director: Βλέπει "Πελάτες" + "Χρήστες" + "Πεδία" (1 φορά!)
+// ✅ Όλοι: Καθαρό UI χωρίς duplicates
+// ═══════════════════════════════════════════════════════════════
+
 
               {formData.type === 'text' && (
                 <div className="bg-blue-50 rounded-xl border border-blue-200 p-4">
@@ -3026,10 +3194,15 @@ function App() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
+    // Only initialize demo data in development
     if (import.meta.env.DEV) {
       initializeDemoData();
     }
-    syncDemoDataToCloud();
+    
+    // Sync to cloud if enabled
+    if (cloudEnabled()) {
+      syncDemoDataToCloud();
+    }
   }, []);
 
   if (!user) {
