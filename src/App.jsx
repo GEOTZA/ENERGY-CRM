@@ -2976,6 +2976,7 @@ const [selectedBackOfficeCustomer, setSelectedBackOfficeCustomer] = useState(nul
                   >
                     <User size={18} />
                     Admin
+                  </button>
                   <button
                     onClick={() => setView('users')}
                     className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
@@ -2986,7 +2987,6 @@ const [selectedBackOfficeCustomer, setSelectedBackOfficeCustomer] = useState(nul
                   >
                     <Users size={18} />
                     Δημιουργία Χρηστών
-                  </button>
                   </button>
                   <button
                     onClick={() => setView('fields')}
