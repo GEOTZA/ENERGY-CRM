@@ -5,8 +5,9 @@ import * as XLSX from 'xlsx';
 // ============================================================
 // SUPABASE CONFIG
 // ============================================================
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 
 const cloudEnabled = () => !!(SUPABASE_URL && SUPABASE_KEY);
 
@@ -23,11 +24,7 @@ const sb = async (path, method = 'GET', body = null) => {
       },
       ...(body ? { body: JSON.stringify(body) } : {})
     });
-    if (!res.ok) {
-      const errText = await res.text();
-      console.warn('Supabase error', res.status, errText);
-      throw new Error(`Supabase REST error ${res.status}: ${errText}`);
-    }
+    if (!res.ok) { console.warn('Supabase error', res.status, await res.text()); return null; }
     const text = await res.text();
     return text ? JSON.parse(text) : [];
   } catch (e) { console.warn('Supabase fetch failed:', e); return null; }
@@ -68,7 +65,7 @@ const importBackupJSON = (file) => {
 
 const exportToExcel = (customers, users, customFields) => {
   const data = customers.map(c => {
-    const agent = users?.find?.(u => u.id === c.agentId);
+    const agent = users.find(u => u.id === c.agentId);
     const row = {
       'ID': c.id,
       'Όνομα': c.name || '',
@@ -2229,42 +2226,6 @@ const UserManagement = ({ user, users, onCreateUser }) => {
 };
 
 
-        <div className="space-y-3">
-          <h3 className="text-lg font-bold text-gray-800 mb-3">
-            {user.role === 'admin' || user.role === 'director' ? 'Όλοι οι Χρήστες' : 'Οι Χρήστες μου'}
-          </h3>
-          {myUsers.map(u => (
-            <div
-              key={u.id}
-              className="border-2 border-gray-200 rounded-xl p-4 hover:border-blue-300 transition-all"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">{u.name}</h3>
-                  <p className="text-sm text-gray-600">{u.email}</p>
-                  {u.superUserId && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Reports to: {users.find(su => su.id === u.superUserId)?.name || 'Unknown'}
-                    </p>
-                  )}
-                </div>
-                <span className="text-xs px-3 py-1 rounded-full bg-blue-100 text-blue-800 border-2 border-blue-200 font-semibold">
-                  {u.role}
-                </span>
-              </div>
-            </div>
-          ))}
-
-          {myUsers.length === 0 && (
-            <div className="text-center py-12 text-gray-400">
-              Δεν έχετε χρήστες ακόμα
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
 const CustomFieldsManagement = () => {
   const [fields, setFields] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -2974,19 +2935,6 @@ const [selectedBackOfficeCustomer, setSelectedBackOfficeCustomer] = useState(nul
                     <Users size={18} />
                     Χρήστες
                   </button>
-                  {user.role === 'director' && (
-                    <button
-                      onClick={() => setView('fields')}
-                      className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                        view === 'fields'
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      <Settings size={18} />
-                      Πεδία
-                    </button>
-                  )}
                 </>
               )}
 
@@ -3016,17 +2964,6 @@ const [selectedBackOfficeCustomer, setSelectedBackOfficeCustomer] = useState(nul
                   >
                     <User size={18} />
                     Admin
-                  <button
-                    onClick={() => setView('users')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                      view === 'users'
-                        ? 'bg-slate-900 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    <Users size={18} />
-                    Δημιουργία Χρηστών
-                  </button>
                   </button>
                   <button
                     onClick={() => setView('fields')}
@@ -3041,7 +2978,6 @@ const [selectedBackOfficeCustomer, setSelectedBackOfficeCustomer] = useState(nul
                   </button>
                 </>
               )}
-
 
               <button
                 onClick={() => {
@@ -3232,7 +3168,7 @@ const [selectedBackOfficeCustomer, setSelectedBackOfficeCustomer] = useState(nul
 )}
 
 
-        {user.role === 'admin' && view === 'users' && (
+        {{user.role === 'admin' && view === 'users' && (
   <UserManagement
     user={user}
     users={users}
@@ -3252,11 +3188,8 @@ function App() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // Demo seed & sync only in development
-    if (import.meta.env.DEV) {
-      initializeDemoData();
-      syncDemoDataToCloud();
-    }
+    initializeDemoData();
+    syncDemoDataToCloud();
   }, []);
 
   if (!user) {
