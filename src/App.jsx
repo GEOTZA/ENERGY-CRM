@@ -3174,7 +3174,7 @@ const [selectedBackOfficeCustomer, setSelectedBackOfficeCustomer] = useState(nul
 )}
 
 
-        {{user.role === 'admin' && view === 'users' && (
+        {user.role === 'admin' && view === 'users' && (
   <UserManagement
     user={user}
     users={users}
