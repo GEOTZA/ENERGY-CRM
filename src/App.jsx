@@ -23,10 +23,17 @@ const sb = async (path, method = 'GET', body = null) => {
       },
       ...(body ? { body: JSON.stringify(body) } : {})
     });
-    if (!res.ok) { console.warn('Supabase error', res.status, await res.text()); return null; }
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('Supabase error', res.status, errorText);
+      throw new Error(`Supabase error ${res.status}: ${errorText}`);
+    }
     const text = await res.text();
     return text ? JSON.parse(text) : [];
-  } catch (e) { console.warn('Supabase fetch failed:', e); return null; }
+  } catch (e) {
+    console.error('Supabase fetch failed:', e);
+    throw e;
+  }
 };
 
 const exportBackupJSON = () => {
@@ -64,7 +71,7 @@ const importBackupJSON = (file) => {
 
 const exportToExcel = (customers, users, customFields) => {
   const data = customers.map(c => {
-    const agent = users.find(u => u.id === c.agentId);
+    const agent = users?.find(u => u.id === c.agentId);
     const row = {
       'ID': c.id,
       'Όνομα': c.name || '',
@@ -73,7 +80,7 @@ const exportToExcel = (customers, users, customFields) => {
       'Τηλέφωνο': c.phone || '',
       'Email': c.email || '',
       'Πάροχος': c.provider || '',
-      'Agent': agent ? agent.name : c.agentName || '',
+      'Agent': agent?.name || c.agentName || 'N/A',
       'Διεύθυνση Εγκατάστασης': c.installationAddress || '',
       'Διεύθυνση Τιμολόγησης': c.billingAddress || '',
       'Ημ/νία Υποβολής': c.submissionDate || '',
@@ -247,7 +254,7 @@ const API = {
 
     if (updates.status && oldStatus !== updates.status) {
       const users = JSON.parse(localStorage.getItem('crm_users') || '[]');
-      const agent = users.find(u => u.id === customers[index].agentId);
+      const agent = users?.find(u => u.id === customers[index].agentId);
       if (agent) sendEmailNotification(agent.email, 'Αλλαγή Κατάστασης Αίτησης',
         `Η αίτηση για τον πελάτη ${customers[index].name} ${customers[index].surname} άλλαξε σε: ${updates.status}`);
       users.filter(u => u.role === 'back_office').forEach(bo =>
@@ -278,7 +285,7 @@ const API = {
     localStorage.setItem('crm_customers', JSON.stringify(customers));
 
     const users = JSON.parse(localStorage.getItem('crm_users') || '[]');
-    const agent = users.find(u => u.id === customers[index].agentId);
+    const agent = users?.find(u => u.id === customers[index].agentId);
     if (userRole === 'back_office' && agent)
       sendEmailNotification(agent.email, 'Νέο Σχόλιο στην Αίτησή σας', `Νέο σχόλιο από ${userName}: ${comment}`);
     if (userRole === 'agent')
@@ -2225,42 +2232,6 @@ const UserManagement = ({ user, users, onCreateUser }) => {
 };
 
 
-        <div className="space-y-3">
-          <h3 className="text-lg font-bold text-gray-800 mb-3">
-            {user.role === 'admin' || user.role === 'director' ? 'Όλοι οι Χρήστες' : 'Οι Χρήστες μου'}
-          </h3>
-          {myUsers.map(u => (
-            <div
-              key={u.id}
-              className="border-2 border-gray-200 rounded-xl p-4 hover:border-blue-300 transition-all"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">{u.name}</h3>
-                  <p className="text-sm text-gray-600">{u.email}</p>
-                  {u.superUserId && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Reports to: {users.find(su => su.id === u.superUserId)?.name || 'Unknown'}
-                    </p>
-                  )}
-                </div>
-                <span className="text-xs px-3 py-1 rounded-full bg-blue-100 text-blue-800 border-2 border-blue-200 font-semibold">
-                  {u.role}
-                </span>
-              </div>
-            </div>
-          ))}
-
-          {myUsers.length === 0 && (
-            <div className="text-center py-12 text-gray-400">
-              Δεν έχετε χρήστες ακόμα
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
 const CustomFieldsManagement = () => {
   const [fields, setFields] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -2970,19 +2941,6 @@ const [selectedBackOfficeCustomer, setSelectedBackOfficeCustomer] = useState(nul
                     <Users size={18} />
                     Χρήστες
                   </button>
-                  {user.role === 'director' && (
-                    <button
-                      onClick={() => setView('fields')}
-                      className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                        view === 'fields'
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      <Settings size={18} />
-                      Πεδία
-                    </button>
-                  )}
                 </>
               )}
 
@@ -3012,17 +2970,6 @@ const [selectedBackOfficeCustomer, setSelectedBackOfficeCustomer] = useState(nul
                   >
                     <User size={18} />
                     Admin
-                  <button
-                    onClick={() => setView('users')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                      view === 'users'
-                        ? 'bg-slate-900 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    <Users size={18} />
-                    Δημιουργία Χρηστών
-                  </button>
                   </button>
                   <button
                     onClick={() => setView('fields')}
@@ -3037,7 +2984,6 @@ const [selectedBackOfficeCustomer, setSelectedBackOfficeCustomer] = useState(nul
                   </button>
                 </>
               )}
-
 
               <button
                 onClick={() => {
@@ -3228,7 +3174,7 @@ const [selectedBackOfficeCustomer, setSelectedBackOfficeCustomer] = useState(nul
 )}
 
 
-        {{user.role === 'admin' && view === 'users' && (
+        {user.role === 'admin' && view === 'users' && (
   <UserManagement
     user={user}
     users={users}
@@ -3248,8 +3194,15 @@ function App() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    initializeDemoData();
-    syncDemoDataToCloud();
+    // Only initialize demo data in development
+    if (import.meta.env.DEV) {
+      initializeDemoData();
+    }
+    
+    // Sync to cloud if enabled
+    if (cloudEnabled()) {
+      syncDemoDataToCloud();
+    }
   }, []);
 
   if (!user) {
